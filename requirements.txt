@@ -1,0 +1,7 @@
+Flask==2.2.2
+Flask-SocketIO==5.3.0
+pandas==1.5.1
+websocket-client==1.4.2
+requests==2.28.1
+numpy==1.23.3
+bootstrap-flask==1.5.1
