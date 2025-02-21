@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, render_template
 from app.utils.websocket_manager import websocket_manager
 
 # Create a Blueprint for routes
@@ -7,7 +7,7 @@ routes = Blueprint("routes", __name__)
 
 @routes.route("/")
 def index():
-    return "Welcome to the Crypto Server!"
+    return render_template("index.html")
 
 
 @routes.route("/api/prices/stablecoins", methods=["GET"])

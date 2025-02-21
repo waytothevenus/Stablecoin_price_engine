@@ -1,8 +1,13 @@
-import pandas as pd
-import json
+import os
 import asyncio
 import websockets
+import json
 import requests
+import pandas as pd
+
+# Unset proxy environment variables
+os.environ.pop("HTTP_PROXY", None)
+os.environ.pop("HTTPS_PROXY", None)
 
 
 class ExchangeClient:
@@ -16,88 +21,6 @@ class ExchangeClient:
     async def connect(self):
         try:
             async with websockets.connect(self.url) as websocket:
-                # Send subscription message (if required)
-                if "coinbase" in self.url:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "type": "subscribe",
-                                "product_ids": self.top_crypto_symbols,
-                                "channels": ["ticker"],
-                            }
-                        )
-                    )
-                elif "kraken" in self.url:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "event": "subscribe",
-                                "pair": self.top_crypto_symbols,
-                                "subscription": {"name": "ticker"},
-                            }
-                        )
-                    )
-                elif "binance" in self.url:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "method": "SUBSCRIBE",
-                                "params": [
-                                    f"{symbol.lower()}@ticker"
-                                    for symbol in self.top_crypto_symbols
-                                ],
-                                "id": 1,
-                            }
-                        )
-                    )
-                elif "crypto.com" in self.url:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "id": 1,
-                                "method": "subscribe",
-                                "params": {
-                                    "channels": [
-                                        f"ticker.{symbol}.USD"
-                                        for symbol in self.top_crypto_symbols
-                                    ],
-                                },
-                                "nonce": 123456,
-                            }
-                        )
-                    )
-                elif "bybit" in self.url:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "op": "subscribe",
-                                "args": [
-                                    f"ticker.{symbol}USD"
-                                    for symbol in self.top_crypto_symbols
-                                ],
-                            }
-                        )
-                    )
-                elif "kucoin" in self.url:
-                    # Fetch KuCoin token
-                    response = requests.post(
-                        "https://api.kucoin.com/api/v1/bullet-public"
-                    )
-                    token = response.json()["data"]["token"]
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "id": 1,
-                                "type": "subscribe",
-                                "topic": f"/market/ticker:{','.join(self.top_crypto_symbols)}",
-                                "privateChannel": False,
-                                "response": True,
-                                "token": token,
-                            }
-                        )
-                    )
-
-                # Listen for messages
                 while True:
                     response = await websocket.recv()
                     self.update_data(response)
@@ -109,7 +32,7 @@ class ExchangeClient:
         for item in data:
             symbol = item["symbol"]
             price = item["price"]
-            exchange = self.url.split(".")[1]
+            exchange = self.url.split(".")[1]  # Extract exchange name from URL
             if symbol in self.top_crypto_symbols:
                 self.crypto_data = self.crypto_data.append(
                     {"symbol": symbol, "price": price, "exchange": exchange},
@@ -152,12 +75,12 @@ def get_top_symbols():
 async def main():
     top_crypto_symbols, top_stablecoin_symbols = get_top_symbols()
     exchanges = [
-        "wss://ws-feed.pro.coinbase.com",
+        "wss://ws-feed.exchange.coinbase.com",  # Updated Coinbase URL
         "wss://ws.kraken.com",
         "wss://stream.binance.com:9443/ws",
         "wss://stream.crypto.com/v2/market",
-        "wss://stream.bybit.com/realtime",
-        "wss://api.kucoin.com/api/v1/bullet-public",
+        "wss://stream.bybit.com/v5/public/linear",  # Updated Bybit URL
+        "wss://ws-api.kucoin.com/endpoint",  # Updated KuCoin URL
     ]
 
     clients = [
