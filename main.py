@@ -2,7 +2,7 @@ from flask import Flask
 from flask_socketio import SocketIO
 import asyncio
 import threading
-from app.utils.exchanges import main as connect_to_exchanges
+from app.utils.exchanges import run as connect_to_exchanges
 from app.utils.websocket_manager import websocket_manager, start_websocket_server
 from app.routes import routes  # Import the routes blueprint
 

@@ -1,48 +1,17 @@
 import os
-import asyncio
-import websockets
 import json
 import requests
 import pandas as pd
+import websocket
 
 # Unset proxy environment variables
 os.environ.pop("HTTP_PROXY", None)
 os.environ.pop("HTTPS_PROXY", None)
 
-
-class ExchangeClient:
-    def __init__(self, url, top_crypto_symbols, top_stablecoin_symbols):
-        self.url = url
-        self.crypto_data = pd.DataFrame(columns=["symbol", "price", "exchange"])
-        self.stablecoin_data = pd.DataFrame(columns=["symbol", "price", "exchange"])
-        self.top_crypto_symbols = top_crypto_symbols
-        self.top_stablecoin_symbols = top_stablecoin_symbols
-
-    async def connect(self):
-        try:
-            async with websockets.connect(self.url) as websocket:
-                while True:
-                    response = await websocket.recv()
-                    self.update_data(response)
-        except Exception as e:
-            print(f"Error connecting to {self.url}: {e}")
-
-    def update_data(self, response):
-        data = json.loads(response)
-        for item in data:
-            symbol = item["symbol"]
-            price = item["price"]
-            exchange = self.url.split(".")[1]  # Extract exchange name from URL
-            if symbol in self.top_crypto_symbols:
-                self.crypto_data = self.crypto_data.append(
-                    {"symbol": symbol, "price": price, "exchange": exchange},
-                    ignore_index=True,
-                )
-            elif symbol in self.top_stablecoin_symbols:
-                self.stablecoin_data = self.stablecoin_data.append(
-                    {"symbol": symbol, "price": price, "exchange": exchange},
-                    ignore_index=True,
-                )
+top_crypto_symbols = []
+top_stablecoin_symbols = []
+general_df = pd.DataFrame(columns=["exchange", "token", "price"])
+stable_df = pd.DataFrame(columns=["exchange", "token", "price"])
 
 
 def get_top_symbols():
@@ -72,23 +41,67 @@ def get_top_symbols():
     return top_crypto_symbols, top_stablecoin_symbols
 
 
-async def main():
+def on_message(self, ws, message):
+    data = json.loads(message)
+    # Extract price information based on the exchange's message format
+    # This is a placeholder and should be adapted to each exchange's message format
+    exchange = ws.url
+    token = data.get("s", "")
+    price = data.get("p", 0)
+
+    if token in top_crypto_symbols:
+       general_df.loc[len(general_df)] = [exchange, token, price]
+    elif token in top_stablecoin_symbols:
+       stable_df.loc[len(stable_df)] = [exchange, token, price]
+
+
+def on_error(ws, error):
+    print(f"WebSocket error: {error}")
+
+
+def on_close(ws, close_status_code, close_msg):
+    print(f"WebSocket connection closed: {close_status_code} - {close_msg}")
+
+
+def on_open(ws):
+    print("WebSocket connection opened")
+    # Subscribe to the ticker stream for multiple tokens
+    tokens = top_crypto_symbols + top_stablecoin_symbols
+    params = [f"{token.lower()}@ticker" for token in tokens]
+    subscribe_message = {"method": "SUBSCRIBE", "params": params, "id": 1}
+    ws.send(json.dumps(subscribe_message))
+
+
+def on_ping(ws, message):
+    print(f"Received ping: {message}")
+    ws.send(message, websocket.ABNF.OPCODE_PONG)
+    print(f"Sent pong: {message}")
+
+
+def run():
+    global top_crypto_symbols, top_stablecoin_symbols
     top_crypto_symbols, top_stablecoin_symbols = get_top_symbols()
-    exchanges = [
-        "wss://ws-feed.exchange.coinbase.com",  # Updated Coinbase URL
+    endpoints = [
+        "wss://ws-feed.pro.coinbase.com",  # Corrected Coinbase URL
         "wss://ws.kraken.com",
-        "wss://stream.binance.com:9443/ws",
-        "wss://stream.crypto.com/v2/market",
-        "wss://stream.bybit.com/v5/public/linear",  # Updated Bybit URL
-        "wss://ws-api.kucoin.com/endpoint",  # Updated KuCoin URL
+        "wss://stream.binance.com:9443/ws/!ticker@arr",  # Corrected Binance URL
+        "wss://stream.crypto.com/v2/market",  # Corrected Crypto.com URL
+        "wss://stream.bybit.com/realtime_public",  # Corrected Bybit URL
+        "wss://ws-api.kucoin.com/endpoint",  # Corrected KuCoin URL
     ]
 
-    clients = [
-        ExchangeClient(url, top_crypto_symbols, top_stablecoin_symbols)
-        for url in exchanges
-    ]
-    await asyncio.gather(*[client.connect() for client in clients])
+    websocket.enableTrace(True)
+    for endpoint in endpoints:
+        ws = websocket.WebSocketApp(
+            endpoint,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close,
+            on_open=on_open,
+            on_ping=on_ping,
+        )
+        ws.run_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run()
