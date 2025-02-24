@@ -1,6 +1,6 @@
 class Config:
     SECRET_KEY = 'your_secret_key_here'
-    WS_AUTH_TOKEN = 'your_auth_token_here'
+    WS_AUTH_TOKEN = 'WS_AUTH_TOKEN'
     EXCHANGE_API_KEYS = {
         'exchange1': 'api_key_1',
         'exchange2': 'api_key_2',

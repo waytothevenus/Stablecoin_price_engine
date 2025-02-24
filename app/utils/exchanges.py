@@ -3,6 +3,7 @@ import json
 import requests
 import pandas as pd
 import websocket
+import asyncio
 
 # Unset proxy environment variables
 os.environ.pop("HTTP_PROXY", None)
@@ -24,7 +25,7 @@ def get_top_symbols():
             "page": 1,
         },
     )
-    top_crypto_symbols = [coin["symbol"].upper() for coin in response.json()]
+    top_crypto_symbols = [coin["symbol"].upper() + "USDT" for coin in response.json()]
 
     response = requests.get(
         "https://api.coingecko.com/api/v3/coins/markets",
@@ -36,23 +37,98 @@ def get_top_symbols():
             "page": 1,
         },
     )
-    top_stablecoin_symbols = [coin["symbol"].upper() for coin in response.json()]
+    top_stablecoin_symbols = [
+        coin["symbol"].upper() + "USDT" for coin in response.json()
+    ]
 
     return top_crypto_symbols, top_stablecoin_symbols
 
 
-def on_message(self, ws, message):
+def on_message(ws, message):
     data = json.loads(message)
-    # Extract price information based on the exchange's message format
-    # This is a placeholder and should be adapted to each exchange's message format
-    exchange = ws.url
-    token = data.get("s", "")
-    price = data.get("p", 0)
+    if isinstance(data, list):
+        for item in data:
+            process_message(ws, item)
+    else:
+        process_message(ws, data)
 
+
+def process_message(ws, data):
+    """
+    Process a single message and update the DataFrame.
+    """
+    exchange = get_exchange_name(ws.url)  # Get the exchange name from the WebSocket URL
+    token = data.get("s", "")  # Get token symbol
+    price = data.get("c", 0)  # Get token price
+
+    # Validate token and price
+    if not token or not price:
+        print(f"Invalid data: {data}")
+        return
+
+    # Update the DataFrame
+    update_price(exchange, token, float(price))
+
+
+def get_exchange_name(url):
+    """
+    Extract the exchange name from the WebSocket URL.
+    """
+    if "binance" in url:
+        return "Binance"
+    elif "coinbase" in url:
+        return "Coinbase"
+    elif "kraken" in url:
+        return "Kraken"
+    elif "crypto.com" in url:
+        return "Crypto.com"
+    elif "bybit" in url:
+        return "Bybit"
+    elif "kucoin" in url:
+        return "KuCoin"
+    else:
+        return "Unknown"
+
+
+def update_price(exchange, token, price):
+    global general_df, stable_df
+
+    # Check if the token and exchange already exist in the DataFrame
     if token in top_crypto_symbols:
-       general_df.loc[len(general_df)] = [exchange, token, price]
+        mask = (general_df["exchange"] == exchange) & (general_df["token"] == token)
+        if mask.any():
+            # Update the existing row
+            general_df.loc[mask, "price"] = price
+        else:
+            # Add a new row
+            new_row = {"exchange": exchange, "token": token, "price": price}
+            general_df = pd.concat(
+                [general_df, pd.DataFrame([new_row])], ignore_index=True
+            )
+
+        # Sort the DataFrame according to top_crypto_symbols
+        general_df["token"] = pd.Categorical(
+            general_df["token"], categories=top_crypto_symbols, ordered=True
+        )
+        general_df.sort_values("token", inplace=True)
+
     elif token in top_stablecoin_symbols:
-       stable_df.loc[len(stable_df)] = [exchange, token, price]
+        mask = (stable_df["exchange"] == exchange) & (stable_df["token"] == token)
+        if mask.any():
+            # Update the existing row
+            stable_df.loc[mask, "price"] = price
+        else:
+            # Add a new row
+            new_row = {"exchange": exchange, "token": token, "price": price}
+            stable_df = pd.concat(
+                [stable_df, pd.DataFrame([new_row])], ignore_index=True
+            )
+
+        # Sort the DataFrame according to top_stablecoin_symbols
+        # stable_df["token"] = pd.Categorical(
+        #     stable_df["token"], categories=top_stablecoin_symbols, ordered=True
+        # )
+        # stable_df.sort_values("token", inplace=True)
 
 
 def on_error(ws, error):
@@ -78,19 +154,25 @@ def on_ping(ws, message):
     print(f"Sent pong: {message}")
 
 
-def run():
+def retrieve_general_token_info():
+    return general_df.to_json(orient="records")
+
+
+def retrieve_stable_token_info():
+    return stable_df.to_json(orient="records")
+
+
+async def run():
+    import time
+
+    # time.sleep(10)
     global top_crypto_symbols, top_stablecoin_symbols
     top_crypto_symbols, top_stablecoin_symbols = get_top_symbols()
     endpoints = [
-        "wss://ws-feed.pro.coinbase.com",  # Corrected Coinbase URL
-        "wss://ws.kraken.com",
         "wss://stream.binance.com:9443/ws/!ticker@arr",  # Corrected Binance URL
-        "wss://stream.crypto.com/v2/market",  # Corrected Crypto.com URL
-        "wss://stream.bybit.com/realtime_public",  # Corrected Bybit URL
-        "wss://ws-api.kucoin.com/endpoint",  # Corrected KuCoin URL
     ]
 
-    websocket.enableTrace(True)
+    websocket.enableTrace(False)
     for endpoint in endpoints:
         ws = websocket.WebSocketApp(
             endpoint,
@@ -104,4 +186,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(run())
