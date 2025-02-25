@@ -2,7 +2,7 @@ from flask import Flask
 from flask_socketio import SocketIO
 import asyncio
 import threading
-from app.utils.exchanges import run as connect_to_exchanges
+from app.utils.exchanges import start_websockets as connect_to_exchanges
 from app.utils.websocket_manager import start_websocket_server
 from app.routes import routes  # Import the routes blueprint
 
@@ -38,12 +38,12 @@ def create_app():
 
     # Start the async tasks in a separate thread
     thread = threading.Thread(target=start_async_tasks)
-    thread.daemon = True  # Daemonize the thread to stop it when the main program exits
-    thread.start()
 
     thread2 = threading.Thread(target=start_async_socket)
-    thread2.daemon = True  # Daemonize the thread to stop it when the main program exits
+    thread.start()
     thread2.start()
+    thread.join()
+    thread2.join()
 
     return app, socketio
 
