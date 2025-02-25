@@ -136,7 +136,9 @@ def process_message(ws, data):
                 price = float(price_info["c"][0])  # Get the latest price
     elif exchange == "Gemini":
         token = data.get("symbol", "")
-        price = data.get("price", 0)
+        changes = data.get("changes", [])
+        if changes and isinstance(changes[0], list) and len(changes[0]) > 1:
+            price = float(changes[0][1])
     elif exchange == "Bitstamp":
         token = data.get("channel").split("_")[2]
         price = price = data.get("data", {}).get("price", 0)
@@ -187,7 +189,7 @@ def update_price(exchange, token, price):
     if not base_token:
         print(f"Invalid token: {token}")
         return
-    cleaned_token = token.replace("//", "")
+    cleaned_token = token.replace("\\", "").replace("-", "")
     # Check if the base token is in top_crypto_symbols or top_stablecoin_symbols
     if base_token in top_crypto_symbols:
         mask = (general_df["exchange"] == exchange) & (
@@ -316,7 +318,10 @@ def on_gemini_open(ws):
     subscribe_message = {
         "type": "subscribe",
         "subscriptions": [
-            {"name": "ticker", "symbols": [f"{token}USD" for token in tokens]}
+            {
+                "name": "l2",
+                "symbols": [f"{token}USD" for token in tokens],
+            }
         ],
     }
     print(f"params: {json.dumps(subscribe_message)}")
