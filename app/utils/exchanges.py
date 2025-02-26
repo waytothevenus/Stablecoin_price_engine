@@ -16,7 +16,11 @@ general_df = pd.DataFrame(columns=["exchange", "token", "price"])
 stable_df = pd.DataFrame(columns=["exchange", "token", "price"])
 
 
+exchanges = ["Binance", "Kraken", "Coinbase", "Bitstamp", "Gemini"]
+
+
 def get_top_symbols():
+    # Get top cryptocurrencies
     response = requests.get(
         "https://api.coingecko.com/api/v3/coins/markets",
         params={
@@ -26,9 +30,17 @@ def get_top_symbols():
             "page": 1,
         },
     )
+
     global top_crypto_symbols
     top_crypto_symbols = [coin["symbol"].upper() for coin in response.json()]
+    prices = [coin["current_price"] for coin in response.json()]
 
+    # Create records for general_df
+    for token, price in zip(top_crypto_symbols, prices):
+        for exchange in exchanges:
+            general_df.loc[len(general_df)] = [exchange, token, str(price) + "USD"]
+
+    # Get top stablecoins
     response = requests.get(
         "https://api.coingecko.com/api/v3/coins/markets",
         params={
@@ -39,38 +51,117 @@ def get_top_symbols():
             "page": 1,
         },
     )
+
     global top_stablecoin_symbols
     top_stablecoin_symbols = [coin["symbol"].upper() for coin in response.json()]
+    stable_prices = [coin["current_price"] for coin in response.json()]
+    # Create records for stable_df
+    for token, price in zip(top_stablecoin_symbols, stable_prices):
+        for exchange in exchanges:
+            stable_df.loc[len(stable_df)] = [exchange, token, str(price) + "USD"]
 
     return top_crypto_symbols, top_stablecoin_symbols
 
 
-def get_available_trading_pairs():
-    try:
-        url = "https://api.binance.com/api/v3/exchangeInfo"
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        trading_pairs = []
-        for symbol in response.json()["symbols"]:
-            base_asset = symbol["baseAsset"]
-            print(f"BaseAsset: {symbol}")
-            quote_asset = symbol["quoteAsset"]
-            trading_pairs.append(f"{base_asset}{quote_asset}")
+async def update_top_symbols_periodically():
+    global top_crypto_symbols, top_stablecoin_symbols
+    while True:
+        top_crypto_symbols, top_stablecoin_symbols = get_top_symbols()
+        print(f"Updated top symbols: {top_crypto_symbols + top_stablecoin_symbols}")
+        await asyncio.sleep(60)  # Wait for 1 minute
 
-        return trading_pairs
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch trading pairs from Binance: {e}")
-        return []
+
+def get_available_trading_pairs(exchange):
+    match exchange:
+        case "Binance":
+            try:
+                url = "https://api.binance.com/api/v3/exchangeInfo"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = []
+                for symbol in response.json()["symbols"]:
+                    base_asset = symbol["baseAsset"]
+                    quote_asset = symbol["quoteAsset"]
+                    trading_pairs.append(f"{base_asset}{quote_asset}")
+
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Binance: {e}")
+                return []
+        case "Coinbase":
+            try:
+                url = "https://api.exchange.coinbase.com/products"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = []
+                for product in response.json():
+                    base_asset = product["base_currency"]
+                    quote_asset = product["quote_currency"]
+                    trading_pairs.append(f"{base_asset}-{quote_asset}")
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Coinbase: {e}")
+                return []
+
+        case "Kraken":
+            try:
+                url = "https://api.kraken.com/0/public/AssetPairs"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = []
+                for pair, details in response.json()["result"].items():
+                    base = details.get("base")
+                    quote = details.get("quote")
+                    trading_pairs.append(f"{base}/{quote}")
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Kraken: {e}")
+                return []
+
+        case "Bitstamp":
+            try:
+                url = "https://www.bitstamp.net/api/v2/trading-pairs-info/"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = []
+                for pair in response.json():
+                    trading_pairs.append(pair.get("url_symbol"))
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Bitstamp: {e}")
+                return []
+        case "Gemini":
+            try:
+                url = "https://api.gemini.com/v1/symbols"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = response.json()
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Gemini: {e}")
+                return []
+        case _:
+            return []
 
 
 # Select the best trading pair based on preferred quote assets
 def select_best_trading_pair(symbol, trading_pairs):
-    preferred_pairs = ["USDT", "BUSD", "BTC", "ETH", "USDC"]
+    preferred_pairs = [
+        "USDT",
+        "USD",
+        "BUSD",
+        "BTC",
+        "ETH",
+        "USDC",
+    ]
 
     # First, try to find a trading pair that matches the preferred pairs
     for pair in preferred_pairs:
         for trading_pair in trading_pairs:
-            if trading_pair.startswith(symbol) and trading_pair.endswith(pair):
+            if (
+                trading_pair.startswith(symbol)
+                | trading_pair.startswith(symbol.lower())
+            ) and (trading_pair.endswith(pair) | trading_pair.endswith(pair.lower())):
                 return trading_pair
 
     # If no preferred pair is found, return the first trading pair that starts with the symbol
@@ -88,30 +179,25 @@ def select_best_trading_pair(symbol, trading_pairs):
 
 
 # Main function to get trading pairs for top tokens
-def get_trading_pairs_for_top_tokens():
+def get_trading_pairs_for_top_tokens(exchange):
     # Get top 50 cryptos and top 25 stablecoins
     global top_crypto_symbols, top_stablecoin_symbols
     all_symbols = top_crypto_symbols + top_stablecoin_symbols
 
     # Get trading pairs for each symbol
     trading_pairs = {}
-    pairs = get_available_trading_pairs()
-    print(f"Available trading pairs: {pairs}")
+    pairs = get_available_trading_pairs(exchange)
+    print(f"Available pairs for {exchange}: {pairs}")
     for symbol in all_symbols:
         best_pair = select_best_trading_pair(symbol, pairs)
-        print(f"Best pair for symbol - {symbol}: {best_pair}")
         if best_pair:
             trading_pairs[symbol] = best_pair
-        else:
-            print(f"No suitable trading pair found for {symbol}")
 
     return trading_pairs
 
 
 def on_message(ws, message):
     data = json.loads(message)
-    print(f"Reveived data: {ws.url}, {data}")
-
     process_message(ws, data)
 
 
@@ -129,11 +215,10 @@ def process_message(ws, data):
         token = data.get("product_id", "")  # Get token symbol
         price = float(data.get("price", 0))  # Get token price
     elif exchange == "Kraken":
-        if isinstance(data, list) and len(data) > 3:
-            token = data[-1]  # Get the pair name (e.g., "XBT/USD")
-            price_info = data[1]  # Get the dictionary containing price information
-            if isinstance(price_info, dict) and "c" in price_info:
-                price = float(price_info["c"][0])  # Get the latest price
+        if data.get("channel") == "ticker":
+            ticker_data = data.get("data", [])[0]
+            token = ticker_data.get("symbol", "")
+            price = ticker_data.get("last", 0)
     elif exchange == "Gemini":
         token = data.get("symbol", "")
         changes = data.get("changes", [])
@@ -187,9 +272,8 @@ def update_price(exchange, token, price):
                 break
 
     if not base_token:
-        print(f"Invalid token: {token}")
         return
-    cleaned_token = token.replace("\\", "").replace("-", "")
+    cleaned_token = token.replace("\\", "").replace("/", "").replace("-", "")
     # Check if the base token is in top_crypto_symbols or top_stablecoin_symbols
     if base_token in top_crypto_symbols:
         mask = (general_df["exchange"] == exchange) & (
@@ -199,17 +283,20 @@ def update_price(exchange, token, price):
             # Update the existing row
             general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
                 base_token, ""
-            )
+            ).replace(base_token.lower(), "")
+            print(f"Token Price updated {exchange} - {base_token} - {price}")
         else:
             # Add a new row
             new_row = {
                 "exchange": exchange,
                 "token": base_token,
-                "price": str(price) + cleaned_token.replace(base_token, ""),
+                "price": str(price)
+                + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
             }
             general_df = pd.concat(
                 [general_df, pd.DataFrame([new_row])], ignore_index=True
             )
+            print(f"New token price inserted {new_row}")
 
         # Sort the DataFrame according to top_crypto_symbols
         general_df["token"] = pd.Categorical(
@@ -223,17 +310,21 @@ def update_price(exchange, token, price):
             # Update the existing row
             stable_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
                 base_token, ""
-            )
+            ).replace(base_token.lower(), "")
+            print(f"Token Price updated {exchange} - {base_token} - {price}")
+
         else:
             # Add a new row
             new_row = {
                 "exchange": exchange,
                 "token": base_token,
-                "price": str(price) + cleaned_token.replace(base_token, ""),
+                "price": str(price)
+                + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
             }
             stable_df = pd.concat(
                 [stable_df, pd.DataFrame([new_row])], ignore_index=True
             )
+            print(f"New token price inserted {new_row}")
 
         # Sort the DataFrame according to top_stablecoin_symbols
         stable_df["token"] = pd.Categorical(
@@ -245,30 +336,31 @@ def update_price(exchange, token, price):
 
 
 def on_error(ws, error):
-    print(f"WebSocket error: {error}")
+    print(f"WebSocket error: {error} in {ws.url}")
 
 
 def on_close(ws, close_status_code, close_msg):
-    print(f"WebSocket connection closed: {close_status_code} - {close_msg}")
+    print(f"WebSocket connection closed: {close_status_code} - {close_msg} - {ws.url}")
 
 
 def on_binance_open(ws):
-    print("WebSocket connection opened")
+    print("WebSocket for Binance connection opened")
     # Subscribe to the ticker stream for multiple tokens
-    tokens = get_trading_pairs_for_top_tokens()
-    print(f"Stable coin list = {tokens}")
-    params = [f"{token.lower()}@ticker" for token in tokens.values()]
+    pairs = get_trading_pairs_for_top_tokens("Binance")
+    print(f"Pairs for Binance = {pairs}")
+    params = [f"{pair.lower()}@ticker" for pair in pairs.values()]
     subscribe_message = {"method": "SUBSCRIBE", "params": params, "id": 1}
     print(f"params: {json.dumps(subscribe_message)}")
     ws.send(json.dumps(subscribe_message))
 
 
 def on_coinbase_open(ws):
-    global top_crypto_symbols, top_stablecoin_symbols
-    print("WebSocket connection opened")
-    print(f"top tokens for coinbase = {top_crypto_symbols + top_stablecoin_symbols}")
-    tokens = top_crypto_symbols + top_stablecoin_symbols
-    params = [f"{token}-USD" for token in tokens]
+
+    print("WebSocket for Coinbase connection opened")
+    # Subscribe to the ticker stream for multiple tokens
+    pairs = get_trading_pairs_for_top_tokens("Coinbase")
+    print(f"Pairs for Coinbase = {pairs}")
+    params = [f"{pair}" for pair in pairs.values()]
     subscribe_message = {
         "type": "subscribe",
         "product_ids": params,
@@ -279,31 +371,30 @@ def on_coinbase_open(ws):
 
 
 def on_kraken_open(ws):
-    global top_crypto_symbols, top_stablecoin_symbols
-    print("WebSocket connection opened")
-    print(f"top tokens for kraken = {top_crypto_symbols + top_stablecoin_symbols}")
-    tokens = top_crypto_symbols + top_stablecoin_symbols
-    params = [f"{token}/USD" for token in tokens]
+    print("WebSocket for Kraken connection opened")
+    # Subscribe to the ticker stream for multiple tokens
+    pairs = get_trading_pairs_for_top_tokens("Kraken")
+    print(f"Pairs for Kraken = {pairs}")
+    params = [f"{pair}" for pair in pairs.values()]
     subscribe_message = {
-        "event": "subscribe",
-        "pair": params,
-        "subscription": {"name": "ticker"},
+        "method": "subscribe",
+        "params": {"channel": "ticker", "symbol": params},
     }
     print(f"params: {json.dumps(subscribe_message)}")
     ws.send(json.dumps(subscribe_message))
 
 
 def on_bitstamp_open(ws):
-    global top_crypto_symbols, top_stablecoin_symbols
-    print("WebSocket connection opened")
-    print(f"top tokens for bitstamp = {top_crypto_symbols + top_stablecoin_symbols}")
-    tokens = top_crypto_symbols + top_stablecoin_symbols
+    print("WebSocket for Bitstamp connection opened")
+    # Subscribe to the ticker stream for multiple tokens
+    pairs = get_trading_pairs_for_top_tokens("Bitstamp")
+    print(f"Pairs for Bitstamp = {pairs}")
     subscribe_messages = [
         {
             "event": "bts:subscribe",
-            "data": {"channel": f"live_trades_{token.lower()}usd"},
+            "data": {"channel": f"live_trades_{pair.lower()}"},
         }
-        for token in tokens
+        for pair in pairs.values()
     ]
     print(f"params: {json.dumps(subscribe_messages)}")
     for subscribe_message in subscribe_messages:
@@ -311,16 +402,16 @@ def on_bitstamp_open(ws):
 
 
 def on_gemini_open(ws):
-    global top_crypto_symbols, top_stablecoin_symbols
-    print("WebSocket connection opened")
-    print(f"top tokens for gemini = {top_crypto_symbols + top_stablecoin_symbols}")
-    tokens = top_crypto_symbols + top_stablecoin_symbols
+    print("WebSocket for Gemini connection opened")
+    # Subscribe to the ticker stream for multiple tokens
+    pairs = get_trading_pairs_for_top_tokens("Gemini")
+    print(f"Pairs for Gemini = {pairs}")
     subscribe_message = {
         "type": "subscribe",
         "subscriptions": [
             {
                 "name": "l2",
-                "symbols": [f"{token}USD" for token in tokens],
+                "symbols": [f"{pair}" for pair in pairs.values()],
             }
         ],
     }
@@ -360,7 +451,7 @@ async def start_websockets():
     endpoints = [
         "wss://stream.binance.com:9443/ws",
         "wss://ws-feed.exchange.coinbase.com",
-        "wss://ws.kraken.com",
+        "wss://ws.kraken.com/v2",
         "wss://ws.bitstamp.net",
         "wss://api.gemini.com/v2/marketdata",
         # Add other endpoints here
@@ -371,7 +462,7 @@ async def start_websockets():
             on_open = on_binance_open
         elif endpoint == "wss://ws-feed.exchange.coinbase.com":
             on_open = on_coinbase_open
-        elif endpoint == "wss://ws.kraken.com":
+        elif endpoint == "wss://ws.kraken.com/v2":
             on_open = on_kraken_open
         elif endpoint == "wss://ws.bitstamp.net":
             on_open = on_bitstamp_open
@@ -386,4 +477,6 @@ async def start_websockets():
 
 
 if __name__ == "__main__":
-    asyncio.run(start_websockets())
+    loop = asyncio.get_event_loop()
+    loop.create_task(update_top_symbols_periodically())
+    loop.run_until_complete(start_websockets())

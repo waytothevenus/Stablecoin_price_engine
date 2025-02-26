@@ -4,14 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Prices</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-    <div class="container">
+    <div class="container mt-5">
         <h1>Crypto Prices</h1>
-        <div id="crypto-prices"></div>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="crypto-prices-table">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Token</th>
+                        <th>Binance</th>
+                        <th>Coinbase</th>
+                        <th>Kraken</th>
+                        <th>Bitstamp</th>
+                        <th>Gemini</th>
+                    </tr>
+                </thead>
+                <tbody id="crypto-prices"></tbody>
+            </table>
+        </div>
         <h1>Stablecoin Prices</h1>
-        <div id="stablecoin-prices"></div>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="stablecoin-prices-table">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Token</th>
+                        <th>Binance</th>
+                        <th>Coinbase</th>
+                        <th>Kraken</th>
+                        <th>Bitstamp</th>
+                        <th>Gemini</th>
+                    </tr>
+                </thead>
+                <tbody id="stablecoin-prices"></tbody>
+            </table>
+        </div>
     </div>
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
 </body>
