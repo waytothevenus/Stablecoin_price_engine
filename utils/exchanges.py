@@ -476,7 +476,9 @@ async def start_websockets():
         thread.start()
 
 
+async def run():
+    await asyncio.gather(update_top_symbols_periodically(), start_websockets())
+
+
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(update_top_symbols_periodically())
-    loop.run_until_complete(start_websockets())
+    asyncio.run(run())
