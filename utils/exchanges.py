@@ -304,7 +304,7 @@ def update_price(exchange, token, price):
         )
         general_df.sort_values("token", inplace=True)
 
-    elif base_token in top_stablecoin_symbols:
+    if base_token in top_stablecoin_symbols:
         mask = (stable_df["exchange"] == exchange) & (stable_df["token"] == base_token)
         if mask.any():
             # Update the existing row
