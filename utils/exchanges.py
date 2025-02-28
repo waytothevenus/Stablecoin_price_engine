@@ -275,7 +275,7 @@ def update_price(exchange, token, price):
         return
     cleaned_token = token.replace("\\", "").replace("/", "").replace("-", "")
     # Check if the base token is in top_crypto_symbols or top_stablecoin_symbols
-    if base_token in top_crypto_symbols:
+    if base_token in top_crypto_symbols or base_token.upper() in top_crypto_symbols:
         mask = (general_df["exchange"] == exchange) & (
             general_df["token"] == base_token
         )
@@ -304,7 +304,10 @@ def update_price(exchange, token, price):
         )
         general_df.sort_values("token", inplace=True)
 
-    if base_token in top_stablecoin_symbols:
+    if (
+        base_token in top_stablecoin_symbols
+        or base_token.upper() in top_stablecoin_symbols
+    ):
         mask = (stable_df["exchange"] == exchange) & (stable_df["token"] == base_token)
         if mask.any():
             # Update the existing row

@@ -66,7 +66,9 @@ function updatePrices(type, prices) {
   prices.forEach(({ exchange, token, price }) => {
     if (type === "crypto") {
       updateTable(cryptoPricesTable, exchange, token, price);
-    } else {
+    }
+
+    if (type === "stablecoin") {
       updateTable(stablecoinPricesTable, exchange, token, price);
     }
   });
