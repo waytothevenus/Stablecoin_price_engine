@@ -284,7 +284,7 @@ def update_price(exchange, token, price):
             general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
                 base_token, ""
             ).replace(base_token.lower(), "")
-            print(f"Token Price updated {exchange} - {base_token} - {price}")
+            # print(f"Token Price updated {exchange} - {base_token} - {price}")
         else:
             # Add a new row
             new_row = {
@@ -296,7 +296,7 @@ def update_price(exchange, token, price):
             general_df = pd.concat(
                 [general_df, pd.DataFrame([new_row])], ignore_index=True
             )
-            print(f"New token price inserted {new_row}")
+            # print(f"New token price inserted {new_row}")
 
         # Sort the DataFrame according to top_crypto_symbols
         general_df["token"] = pd.Categorical(
@@ -311,7 +311,7 @@ def update_price(exchange, token, price):
             stable_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
                 base_token, ""
             ).replace(base_token.lower(), "")
-            print(f"Token Price updated {exchange} - {base_token} - {price}")
+            print(f"Stable Token Price updated {exchange} - {base_token} - {price}")
 
         else:
             # Add a new row
@@ -324,15 +324,13 @@ def update_price(exchange, token, price):
             stable_df = pd.concat(
                 [stable_df, pd.DataFrame([new_row])], ignore_index=True
             )
-            print(f"New token price inserted {new_row}")
+            print(f"New stable token price inserted {new_row}")
 
         # Sort the DataFrame according to top_stablecoin_symbols
         stable_df["token"] = pd.Categorical(
             stable_df["token"], categories=top_stablecoin_symbols, ordered=True
         )
         stable_df.sort_values("token", inplace=True)
-    else:
-        print(f"Token {token} not in crypto or stablecoin lists")
 
 
 def on_error(ws, error):
