@@ -281,9 +281,12 @@ def update_price(exchange, token, price):
         )
         if mask.any():
             # Update the existing row
-            general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
-                base_token, ""
-            ).replace(base_token.lower(), "")
+            general_df.loc[mask, "price"] = (
+                str(price)
+                + cleaned_token.replace(base_token, "")
+                .replace(base_token.lower(), "")
+                .toUpperCase()
+            )
             # print(f"Token Price updated {exchange} - {base_token} - {price}")
         else:
             # Add a new row

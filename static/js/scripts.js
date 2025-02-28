@@ -1,9 +1,5 @@
-const cryptoPricesTable = document
-  .getElementById("crypto-prices")
-  .getElementsByTagName("tbody")[0];
-const stablecoinPricesTable = document
-  .getElementById("stablecoin-prices")
-  .getElementsByTagName("tbody")[0];
+const cryptoPricesTable = document.getElementById("crypto-prices");
+const stablecoinPricesTable = document.getElementById("stablecoin-prices");
 
 let authToken = null; // Store the authentication token
 let ws = null; // Store the WebSocket instance
@@ -69,17 +65,15 @@ function requestData() {
 function updatePrices(type, prices) {
   prices.forEach(({ exchange, token, price }) => {
     if (type === "crypto") {
-      updateTable(cryptoPricesTable, exchange, token, price);
-    }
-
-    if (type === "stablecoin") {
-      updateTable(stablecoinPricesTable, exchange, token, price);
+      updateTable(cryptoPricesTable, exchange, token, price, type);
+    } else if (type === "stablecoin") {
+      updateTable(stablecoinPricesTable, exchange, token, price, type);
     }
   });
 }
 
-function updateTable(table, exchange, token, price) {
-  let rowId = token;
+function updateTable(table, exchange, token, price, type) {
+  let rowId = type+token;
   let row = document.getElementById(rowId);
 
   if (!row) {
@@ -87,20 +81,19 @@ function updateTable(table, exchange, token, price) {
     row.id = rowId;
     row.innerHTML = `
             <td>${token}</td>
-            <td id="${rowId}-Binance">-</td>
-            <td id="${rowId}-Coinbase">-</td>
-            <td id="${rowId}-Kraken">-</td>
-            <td id="${rowId}-Bitstamp">-</td>
-            <td id="${rowId}-Gemini">-</td>
+            <td id="${type}-${rowId}-Binance">-</td>
+            <td id="${type}-${rowId}-Coinbase">-</td>
+            <td id="${type}-${rowId}-Kraken">-</td>
+            <td id="${type}-${rowId}-Bitstamp">-</td>
+            <td id="${type}-${rowId}-Gemini">-</td>
         `;
     table.appendChild(row);
   }
 
-  const priceCellId = `${rowId}-${exchange}`;
+  const priceCellId = `${type}-${rowId}-${exchange}`;
   const priceCell = document.getElementById(priceCellId);
 
   if (priceCell) {
-    console.log("Price update: ", priceCellId, price);
     priceCell.innerText = price;
   } else {
     console.warn(`Cell with id ${priceCellId} not found`);
