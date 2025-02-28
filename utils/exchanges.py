@@ -260,11 +260,8 @@ def update_price(
     exchange,
     token,
     price,
-    general_df,
-    stable_df,
-    top_crypto_symbols,
-    top_stablecoin_symbols,
 ):
+    global general_df, stable_df, top_crypto_symbols, top_stablecoin_symbols
 
     def extract_base_token(token, symbols):
         """Extract the base token from the trading pair symbol."""
