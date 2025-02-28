@@ -1,5 +1,9 @@
-const cryptoPricesTable = document.getElementById("crypto-prices");
-const stablecoinPricesTable = document.getElementById("stablecoin-prices");
+const cryptoPricesTable = document
+  .getElementById("crypto-prices")
+  .getElementsByTagName("tbody")[0];
+const stablecoinPricesTable = document
+  .getElementById("stablecoin-prices")
+  .getElementsByTagName("tbody")[0];
 
 let authToken = null; // Store the authentication token
 let ws = null; // Store the WebSocket instance
