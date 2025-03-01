@@ -121,7 +121,7 @@ def get_available_trading_pairs(exchange):
                         base = "LTC"
                     if base == "XXLM":
                         base = "XLM"
-                    if base == "ETH":
+                    if quote == "FIUSD":
                         quote == "USDT"
                     trading_pairs.append(f"{base}/{quote}")
                 trading_pairs.append("BTC/USD")
