@@ -84,7 +84,7 @@ function updateTable(table, exchange, token, price, type) {
             <td id="${rowId}-Binance">-</td>
             <td id="${rowId}-Coinbase">-</td>
             <td id="${rowId}-Kraken">-</td>
-            <td id="${rowId}-Bitstamp">-</td>
+            <td id="${rowId}-Binance.US">-</td>
             <td id="${rowId}-Gemini">-</td>
         `;
     table.appendChild(row);

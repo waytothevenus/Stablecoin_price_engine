@@ -16,7 +16,7 @@ general_df = pd.DataFrame(columns=["exchange", "token", "price"])
 stable_df = pd.DataFrame(columns=["exchange", "token", "price"])
 
 
-exchanges = ["Binance", "Kraken", "Coinbase", "Bitstamp", "Gemini"]
+exchanges = ["Binance", "Kraken", "Coinbase", "Bitstamp", "Binance.US", "Gemini"]
 
 
 def get_top_symbols():
@@ -76,6 +76,22 @@ def get_available_trading_pairs(exchange):
         case "Binance":
             try:
                 url = "https://api.binance.com/api/v3/exchangeInfo"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                trading_pairs = []
+                for symbol in response.json()["symbols"]:
+                    base_asset = symbol["baseAsset"]
+                    quote_asset = symbol["quoteAsset"]
+                    trading_pairs.append(f"{base_asset}{quote_asset}")
+                print(f"Trading pairs: {trading_pairs}")
+
+                return trading_pairs
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to fetch trading pairs from Binance: {e}")
+                return []
+        case "Binance.US":
+            try:
+                url = "https://api.binance.us/api/v3/exchangeInfo"
                 response = requests.get(url)
                 response.raise_for_status()  # Raise an exception for HTTP errors
                 trading_pairs = []
@@ -158,14 +174,7 @@ def get_available_trading_pairs(exchange):
 
 # Select the best trading pair based on preferred quote assets
 def select_best_trading_pair(symbol, trading_pairs):
-    preferred_pairs = [
-        "USDT",
-        "USD",
-        "BUSD",
-        "BTC",
-        "ETH",
-        "USDC",
-    ]
+    preferred_pairs = ["USDT", "USD", "BUSD", "BTC", "ETH", "USDC", "USD4"]
 
     # First, try to find a trading pair that matches the preferred pairs
     for pair in preferred_pairs:
@@ -223,6 +232,9 @@ def process_message(ws, data):
     if exchange == "Binance":
         token = data.get("s", "")  # Get token symbol
         price = data.get("c", 0)  # Get token price
+    if exchange == "Binance.US":
+        token = data.get("s", "")  # Get token symbol
+        price = data.get("c", 0)  # Get token price
     elif exchange == "Coinbase":
         token = data.get("product_id", "")  # Get token symbol
         price = float(data.get("price", 0))  # Get token price
@@ -254,7 +266,9 @@ def get_exchange_name(url):
     """
     Extract the exchange name from the WebSocket URL.
     """
-    if "binance" in url:
+    if "binance.us" in url:
+        return "Binance.US"
+    elif "binance" in url:
         return "Binance"
     elif "coinbase" in url:
         return "Coinbase"
@@ -466,7 +480,8 @@ async def start_websockets():
         "wss://ws-feed.exchange.coinbase.com",
         "wss://ws.kraken.com/v2",
         "wss://ws.bitstamp.net",
-        "wss://api.gemini.com/v2/marketdata",
+        # "wss://api.gemini.com/v2/marketdata",
+        "wss://stream.binance.us:9443/ws",
         # Add other endpoints here
     ]
 
@@ -477,8 +492,10 @@ async def start_websockets():
             on_open = on_coinbase_open
         elif endpoint == "wss://ws.kraken.com/v2":
             on_open = on_kraken_open
-        elif endpoint == "wss://ws.bitstamp.net":
-            on_open = on_bitstamp_open
+        # elif endpoint == "wss://ws.bitstamp.net":
+        #     on_open = on_bitstamp_open
+        elif endpoint == "wss://stream.binance.us:9443/ws":
+            on_open = on_binance_open
         elif endpoint == "wss://api.gemini.com/v2/marketdata":
             on_open = on_gemini_open
         else:
