@@ -113,7 +113,18 @@ def get_available_trading_pairs(exchange):
                 for pair, details in response.json()["result"].items():
                     base = details.get("base")
                     quote = details.get("quote")
+                    if quote == "ZUSD":
+                        quote = "USD"
+                    if base == "XXRP":
+                        base = "XRP"
+                    if base == "XLTC":
+                        base = "LTC"
+                    if base == "XXLM":
+                        base = "XLM"
+                    if base == "ETH":
+                        quote == "USDT"
                     trading_pairs.append(f"{base}/{quote}")
+                trading_pairs.append("BTC/USD")
                 return trading_pairs
             except requests.exceptions.RequestException as e:
                 print(f"Failed to fetch trading pairs from Kraken: {e}")
@@ -263,7 +274,7 @@ def update_price(exchange, token, price):
 
     # Extract the base token symbol from the trading pair symbol
     # Example: "BTCUSDT" -> "BTC", "ETHBUSD" -> "ETH"
-    if exchange == "Kraken" and token.startswith("XBT"):
+    if exchange == "Kraken" and (token.startswith("XBT") or token.startswith("BTC")):
         base_token = "BTC"
     else:
         base_token = None

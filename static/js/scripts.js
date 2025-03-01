@@ -73,10 +73,10 @@ function updatePrices(type, prices) {
 }
 
 function updateTable(table, exchange, token, price, type) {
-  let rowId = type+token;
+  let rowId = type + "-" + token;
   let row = document.getElementById(rowId);
 
-  if (!row & (token !== null)) {
+  if (!row) {
     row = document.createElement("tr");
     row.id = rowId;
     row.innerHTML = `
@@ -90,13 +90,16 @@ function updateTable(table, exchange, token, price, type) {
     table.appendChild(row);
   }
 
-  const priceCellId = `${rowId}-${exchange}`;
-  const priceCell = document.getElementById(priceCellId);
+  if (type && token && price) {
+    const priceCellId = `${rowId}-${exchange}`;
+    console.log("Price Cell ID", priceCellId, price);
+    const priceCell = document.getElementById(priceCellId);
 
-  if (priceCell) {
-    priceCell.innerText = price;
-  } else {
-    console.warn(`Cell with id ${priceCellId} not found`);
+    if (priceCell) {
+      priceCell.innerText = price;
+    } else {
+      console.warn(`Cell with id ${priceCellId} not found`);
+    }
   }
 }
 
