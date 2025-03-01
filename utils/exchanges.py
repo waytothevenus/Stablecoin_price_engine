@@ -33,12 +33,12 @@ def get_top_symbols():
 
     global top_crypto_symbols
     top_crypto_symbols = [coin["symbol"].upper() for coin in response.json()]
-    prices = [coin["current_price"] for coin in response.json()]
+    # prices = [coin["current_price"] for coin in response.json()]
 
     # Create records for general_df
-    for token, price in zip(top_crypto_symbols, prices):
+    for token in top_crypto_symbols:
         for exchange in exchanges:
-            general_df.loc[len(general_df)] = [exchange, token, str(price) + "USD"]
+            general_df.loc[len(general_df)] = [exchange, token, ""]
 
     # Get top stablecoins
     response = requests.get(
@@ -54,11 +54,11 @@ def get_top_symbols():
 
     global top_stablecoin_symbols
     top_stablecoin_symbols = [coin["symbol"].upper() for coin in response.json()]
-    stable_prices = [coin["current_price"] for coin in response.json()]
+    # stable_prices = [coin["current_price"] for coin in response.json()]
     # Create records for stable_df
-    for token, price in zip(top_stablecoin_symbols, stable_prices):
+    for token in top_stablecoin_symbols:
         for exchange in exchanges:
-            stable_df.loc[len(stable_df)] = [exchange, token, str(price) + "USD"]
+            stable_df.loc[len(stable_df)] = [exchange, token, ""]
 
     return top_crypto_symbols, top_stablecoin_symbols
 
@@ -83,6 +83,7 @@ def get_available_trading_pairs(exchange):
                     base_asset = symbol["baseAsset"]
                     quote_asset = symbol["quoteAsset"]
                     trading_pairs.append(f"{base_asset}{quote_asset}")
+                print(f"Trading pairs: {trading_pairs}")
 
                 return trading_pairs
             except requests.exceptions.RequestException as e:
@@ -281,12 +282,9 @@ def update_price(exchange, token, price):
         )
         if mask.any():
             # Update the existing row
-            general_df.loc[mask, "price"] = (
-                str(price)
-                + cleaned_token.replace(base_token, "")
-                .replace(base_token.lower(), "")
-                .toUpperCase()
-            )
+            general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
+                base_token, ""
+            ).replace(base_token.lower(), "")
             # print(f"Token Price updated {exchange} - {base_token} - {price}")
         else:
             # Add a new row
