@@ -76,21 +76,21 @@ function updateTable(table, exchange, token, price, type) {
   let rowId = type+token;
   let row = document.getElementById(rowId);
 
-  if (!row) {
+  if (!row & (token !== null)) {
     row = document.createElement("tr");
     row.id = rowId;
     row.innerHTML = `
             <td>${token}</td>
-            <td id="${type}-${rowId}-Binance">-</td>
-            <td id="${type}-${rowId}-Coinbase">-</td>
-            <td id="${type}-${rowId}-Kraken">-</td>
-            <td id="${type}-${rowId}-Bitstamp">-</td>
-            <td id="${type}-${rowId}-Gemini">-</td>
+            <td id="${rowId}-Binance">-</td>
+            <td id="${rowId}-Coinbase">-</td>
+            <td id="${rowId}-Kraken">-</td>
+            <td id="${rowId}-Bitstamp">-</td>
+            <td id="${rowId}-Gemini">-</td>
         `;
     table.appendChild(row);
   }
 
-  const priceCellId = `${type}-${rowId}-${exchange}`;
+  const priceCellId = `${rowId}-${exchange}`;
   const priceCell = document.getElementById(priceCellId);
 
   if (priceCell) {
