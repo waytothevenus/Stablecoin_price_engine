@@ -479,8 +479,8 @@ async def start_websockets():
         "wss://stream.binance.com:9443/ws",
         "wss://ws-feed.exchange.coinbase.com",
         "wss://ws.kraken.com/v2",
-        "wss://ws.bitstamp.net",
-        # "wss://api.gemini.com/v2/marketdata",
+        # "wss://ws.bitstamp.net",
+        "wss://api.gemini.com/v2/marketdata",
         "wss://stream.binance.us:9443/ws",
         # Add other endpoints here
     ]
