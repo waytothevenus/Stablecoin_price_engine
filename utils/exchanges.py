@@ -186,15 +186,15 @@ def select_best_trading_pair(symbol, trading_pairs):
                 return trading_pair
 
     # If no preferred pair is found, return the first trading pair that starts with the symbol
-    for trading_pair in trading_pairs:
-        if trading_pair.startswith(symbol):
-            return trading_pair
-    for trading_pair in trading_pairs:
-        if trading_pair.endswith(symbol):
-            return trading_pair
-    for trading_pair in trading_pairs:
-        if trading_pair.find(symbol) != -1:
-            return trading_pair
+    # for trading_pair in trading_pairs:
+    #     if trading_pair.startswith(symbol):
+    #         return trading_pair
+    # for trading_pair in trading_pairs:
+    #     if trading_pair.endswith(symbol):
+    #         return trading_pair
+    # for trading_pair in trading_pairs:
+    #     if trading_pair.find(symbol) != -1:
+    #         return trading_pair
 
     return None  # No suitable trading pair found
 
@@ -282,84 +282,185 @@ def get_exchange_name(url):
         return "Unknown"
 
 
+# def update_price(exchange, token, price):
+#     global general_df, stable_df
+#     global top_crypto_symbols, top_stablecoin_symbols
+#     base_token = ""
+#     quote_token = ""
+#     # Extract the base token symbol from the trading pair symbol
+#     # Example: "BTCUSDT" -> "BTC", "ETHBUSD" -> "ETH"
+#     if exchange == "Kraken" and (token.startswith("XBT") or token.startswith("BTC")):
+#         base_token = "BTC"
+#     else:
+#         base_token = None
+#         for symbol in top_crypto_symbols + top_stablecoin_symbols:
+#             if token.startswith(symbol) or token.startswith(symbol.lower()):
+#                 base_token = symbol
+#                 break
+
+#     if not base_token:
+#         return
+#     cleaned_token = token.replace("\\", "").replace("/", "").replace("-", "")
+#     # Check if the base token is in top_crypto_symbols or top_stablecoin_symbols
+#     if base_token in top_crypto_symbols or base_token.upper() in top_crypto_symbols:
+#         mask = (general_df["exchange"] == exchange) & (
+#             general_df["token"] == base_token
+#         )
+#         if mask.any():
+#             # Update the existing row
+#             general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
+#                 base_token, ""
+#             ).replace(base_token.lower(), "")
+#             # print(f"Token Price updated {exchange} - {base_token} - {price}")
+#         else:
+#             # Add a new row
+#             new_row = {
+#                 "exchange": exchange,
+#                 "token": base_token,
+#                 "price": str(price)
+#                 + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
+#             }
+#             general_df = pd.concat(
+#                 [general_df, pd.DataFrame([new_row])], ignore_index=True
+#             )
+#             # print(f"New token price inserted {new_row}")
+
+#         # Sort the DataFrame according to top_crypto_symbols
+#         general_df["token"] = pd.Categorical(
+#             general_df["token"], categories=top_crypto_symbols, ordered=True
+#         )
+#         general_df.sort_values("token", inplace=True)
+
+#     if (
+#         base_token in top_stablecoin_symbols
+#         or base_token.upper() in top_stablecoin_symbols
+#     ):
+#         mask = (stable_df["exchange"] == exchange) & (stable_df["token"] == base_token)
+#         if mask.any():
+#             # Update the existing row
+#             stable_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
+#                 base_token, ""
+#             ).replace(base_token.lower(), "")
+#             print(f"Stable Token Price updated {exchange} - {base_token} - {price}")
+
+#         else:
+#             # Add a new row
+#             new_row = {
+#                 "exchange": exchange,
+#                 "token": base_token,
+#                 "price": str(price)
+#                 + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
+#             }
+#             stable_df = pd.concat(
+#                 [stable_df, pd.DataFrame([new_row])], ignore_index=True
+#             )
+#             print(f"New stable token price inserted {new_row}")
+
+
+#         # Sort the DataFrame according to top_stablecoin_symbols
+#         stable_df["token"] = pd.Categorical(
+#             stable_df["token"], categories=top_stablecoin_symbols, ordered=True
+#         )
+#         stable_df.sort_values("token", inplace=True)
+
+
 def update_price(exchange, token, price):
     global general_df, stable_df
     global top_crypto_symbols, top_stablecoin_symbols
 
-    # Extract the base token symbol from the trading pair symbol
-    # Example: "BTCUSDT" -> "BTC", "ETHBUSD" -> "ETH"
+    base_token = ""
+    quote_token = ""
+
+    # Extract the base token and quote token from the trading pair symbol
     if exchange == "Kraken" and (token.startswith("XBT") or token.startswith("BTC")):
         base_token = "BTC"
+        quote_token = token.replace("XBT", "").replace("BTC", "")
     else:
-        base_token = None
         for symbol in top_crypto_symbols + top_stablecoin_symbols:
             if token.startswith(symbol) or token.startswith(symbol.lower()):
                 base_token = symbol
+                quote_token = token.replace(symbol, "").replace(symbol.lower(), "")
                 break
 
-    if not base_token:
+    if not base_token or not quote_token:
         return
+
     cleaned_token = token.replace("\\", "").replace("/", "").replace("-", "")
-    # Check if the base token is in top_crypto_symbols or top_stablecoin_symbols
-    if base_token in top_crypto_symbols or base_token.upper() in top_crypto_symbols:
-        mask = (general_df["exchange"] == exchange) & (
-            general_df["token"] == base_token
+
+    # Determine if the base token is in the top crypto or stablecoin lists
+    base_token_exists = (
+        base_token in top_crypto_symbols or base_token in top_stablecoin_symbols
+    )
+
+    # If the base token does not exist in the top lists, check if the quote token does
+    if not base_token_exists:
+        is_quote_token_based = (
+            quote_token in top_crypto_symbols or quote_token in top_stablecoin_symbols
         )
+        if is_quote_token_based:
+            # Invert the price if the token is based on the quote token
+            inverted_price = 1 / price if price != 0 else 0
+            price_to_store = inverted_price
+            token_to_store = quote_token
+        else:
+            # If neither base nor quote token is in the top lists, skip
+            return
+    else:
+        # Use the base token and the original price
+        price_to_store = price
+        token_to_store = base_token
+
+    # Function to update or add a row in the DataFrame
+    def update_or_add_row(df, token, price, cleaned_token):
+        mask = (df["exchange"] == exchange) & (df["token"] == token)
         if mask.any():
             # Update the existing row
-            general_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
+            df.loc[mask, "price"] = str(price) + cleaned_token.replace(
                 base_token, ""
             ).replace(base_token.lower(), "")
-            # print(f"Token Price updated {exchange} - {base_token} - {price}")
         else:
             # Add a new row
             new_row = {
                 "exchange": exchange,
-                "token": base_token,
+                "token": token,
                 "price": str(price)
                 + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
             }
-            general_df = pd.concat(
-                [general_df, pd.DataFrame([new_row])], ignore_index=True
-            )
-            # print(f"New token price inserted {new_row}")
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        return df
 
-        # Sort the DataFrame according to top_crypto_symbols
-        general_df["token"] = pd.Categorical(
-            general_df["token"], categories=top_crypto_symbols, ordered=True
-        )
-        general_df.sort_values("token", inplace=True)
-
+    # Update or add the row for the token_to_store
     if (
-        base_token in top_stablecoin_symbols
-        or base_token.upper() in top_stablecoin_symbols
+        token_to_store in top_crypto_symbols
+        or token_to_store.upper() in top_crypto_symbols
     ):
-        mask = (stable_df["exchange"] == exchange) & (stable_df["token"] == base_token)
-        if mask.any():
-            # Update the existing row
-            stable_df.loc[mask, "price"] = str(price) + cleaned_token.replace(
-                base_token, ""
-            ).replace(base_token.lower(), "")
-            print(f"Stable Token Price updated {exchange} - {base_token} - {price}")
-
-        else:
-            # Add a new row
-            new_row = {
-                "exchange": exchange,
-                "token": base_token,
-                "price": str(price)
-                + cleaned_token.replace(base_token, "").replace(base_token.lower(), ""),
-            }
-            stable_df = pd.concat(
-                [stable_df, pd.DataFrame([new_row])], ignore_index=True
-            )
-            print(f"New stable token price inserted {new_row}")
-
-        # Sort the DataFrame according to top_stablecoin_symbols
-        stable_df["token"] = pd.Categorical(
-            stable_df["token"], categories=top_stablecoin_symbols, ordered=True
+        general_df = update_or_add_row(
+            general_df, token_to_store, price_to_store, cleaned_token
         )
-        stable_df.sort_values("token", inplace=True)
+    elif (
+        token_to_store in top_stablecoin_symbols
+        or token_to_store.upper() in top_stablecoin_symbols
+    ):
+        stable_df = update_or_add_row(
+            stable_df, token_to_store, price_to_store, cleaned_token
+        )
+
+    # Handle USDC/USDT pair
+    if token_to_store == "USDC":
+        usdt_price = 1 / price_to_store if price_to_store != 0 else 0
+        update_or_add_row(stable_df, "USDT", usdt_price, "USDUSDCC")
+        update_or_add_row(stable_df, "USDC", price_to_store, "USDT")
+
+    # Sort the DataFrames
+    general_df["token"] = pd.Categorical(
+        general_df["token"], categories=top_crypto_symbols, ordered=True
+    )
+    general_df.sort_values("token", inplace=True)
+
+    stable_df["token"] = pd.Categorical(
+        stable_df["token"], categories=top_stablecoin_symbols, ordered=True
+    )
+    stable_df.sort_values("token", inplace=True)
 
 
 def on_error(ws, error):
