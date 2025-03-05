@@ -437,7 +437,7 @@ def update_price(exchange, token, price):
         general_df = update_or_add_row(
             general_df, token_to_store, price_to_store, cleaned_token
         )
-    elif (
+    if (
         token_to_store in top_stablecoin_symbols
         or token_to_store.upper() in top_stablecoin_symbols
     ):
